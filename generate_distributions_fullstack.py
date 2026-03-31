@@ -6,20 +6,10 @@ import os
 import re
 
 def add_args(parser):
-    parser.add_argument('--infile', type = str, required=True, help='input .star file for filtering')
-    parser.add_argument('--two', type = int, required=True, help = 'number of 2bp particles to be randomly subsampled')
-    parser.add_argument('--three', type = int, required=True, help = 'number of 3bp particles to be randomly subsampled')
-    parser.add_argument('--four', type = int, required=True, help = 'number of 4bp particles to be randomly subsampled')
-    parser.add_argument('--five', type = int, required=True, help = 'number of 5bp particles to be randomly subsampled')
-    parser.add_argument('--six', type = int, required=True, help = 'number of 6bp particles to be randomly subsampled')
-    parser.add_argument('--seven', type = int, required=True, help = 'number of 7bp particles to be randomly subsampled')
-    parser.add_argument('--eight', type = int, required=True, help = 'number of 8bp particles to be randomly subsampled')
-    parser.add_argument('--nine', type = int, required=True, help = 'number of 9bp particles to be randomly subsampled')
-    parser.add_argument('--ten', type = int, required=True, help = 'number of 10bp particles to be randomly subsampled')
-    parser.add_argument('--eleven', type = int, required=True, help = 'number of  11bp particles to be randomly subsampled')
-    parser.add_argument('--twelve', type = int, required=True, help = 'number of 12bp particles to be randomly subsampled')
-    parser.add_argument('--thirteen', type = int, required=True, help = 'number of 13bp particles to be randomly subsampled')
-    parser.add_argument('--fourteen', type = int, required=True, help = 'number of 14bp particles to be randomly subsampled')
+    parser.add_argument('--infile', required=True, type = str, help='Input .star file for filtering')
+    parser.add_argument('--conformation_list', required = False, type = int, nargs = '+', help = 'If desired, indicate specific conformational labels to select as space-separated integers')
+    parser.add_argument('--conformation_range', required = False, type = int, nargs = 2, help = 'Alternatively, indicate a range of conformational labels to be included by providing the first and last label in the range you want included')
+    parser.add_argument('--num_particles', required=True, type = int, nargs = 13, help = 'Number of particles to be randomly subsampled from each of the 13 datasets. Provide as a list of space-separated integers, with desired number of 2 bp particles first and desired number of 14 bp particles last')
     parser.add_argument('--outfile', default = './out.star', help = 'output .star file')
     return parser 
 
@@ -104,7 +94,6 @@ class Starfile():
         f.write('\n'.join(headers))
         f.write('\n')
         for i in df.index:
-            # TODO: Assumes header and df ordering is consistent
             f.write(' '.join([str(v) for v in df.loc[i]]))
             f.write('\n')
 
@@ -120,13 +109,24 @@ class Starfile():
         else:
             self._write_block(f, self.headers, self.df, block_header='data_')
 
-def return_distribution_star(in_star, distribution_dict, out_star):
-    #read in refinement .star file with all particles
+def return_distribution_star(in_star, distribution_dict, out_star, clist, crange):
+    # read in refinement .star file with all particles
     s = Starfile.load(in_star)
-    pattern = r'([1-9][0-4]*)(bp)'
-    origins = s.df['_rlnImageName'].str.extract(pattern)[0].astype('int')
 
-    #select random indices from each dataset
+    assert clist is None or crange is None, 'provide either selected conformational labels or a conformational label range'
+    
+    if clist:
+        subset_df = s.df['_ConformationalLabel'].isin(clist)
+    elif crange:
+        start, stop = crange
+        subset_df = s.df['_ConformationalLabel'].isin(np.arange(start, stop+1))
+    else: # by default select all conformational labels
+        subset_df = s.df
+        
+    pattern = r'([1-9][0-4]*)(bp)'
+    origins = subset_df['_rlnImageName'].str.extract(pattern)[0].astype('int')
+
+    # select random indices from each dataset
     selected_inds = {}
     for dataset in distribution_dict:
         subset_inds = origins[origins == dataset].index
@@ -134,26 +134,26 @@ def return_distribution_star(in_star, distribution_dict, out_star):
     
         selected_inds[dataset] = np.random.choice(subset_inds, distribution_dict[dataset], replace = False)
 
-    #shuffle indices to randomize .star file order
+    # shuffle indices to randomize .star file order
     all_selected_inds = np.concatenate([selected_inds[dataset] for dataset in distribution_dict])
     all_selected_inds_shuffle = np.random.permutation(all_selected_inds)
     s.df = s.df.loc[all_selected_inds_shuffle]
     
-    #reassign random subsets
+    # reassign random subsets
     sampling_distr = np.ones(int(np.ceil((len(all_selected_inds))/2)*2))
     sampling_distr[(len(all_selected_inds))//2:] = 2
     sampling_distr = sampling_distr.astype('int')
 
     s.df['_rlnRandomSubset'] = np.random.choice(sampling_distr, len(s.df), replace = False)
 
-    #write new .star file
+    # write new .star file
     s.write(out_star)
     
     return 
 
 def main(args):
-    desired_num_particles = {2: args.two, 3: args.three, 4: args.four, 5: args.five, 6: args.six, 7: args.seven, 8: args.eight, 9: args.nine, 10: args.ten, 11: args.eleven, 12:args.twelve, 13: args.thirteen, 14: args.fourteen}
-    return_distribution_star(args.infile, desired_num_particles, args.outfile)
+    desired_num_particles = {i: args.num_particles[i-2] for i in range(2, 15)}
+    return_distribution_star(args.infile, desired_num_particles, args.outfile, args.conformation_list, args.conformation_range)
     return
 
 if __name__ == '__main__':
