@@ -118,11 +118,11 @@ def return_distribution_star(in_star, distribution_dict, out_star, clist, crange
     
     if clist:
         subset_df = s.df[s.df['_ConformationalLabel'].isin(clist)]
-        print(len(subset_df))
+        print(f'Total number of particles in selected conformational states is {len(subset_df)}')
     elif crange:
         start, stop = crange
         subset_df = s.df[s.df['_ConformationalLabel'].isin(np.arange(start, stop+1))]
-        print(len(subset_df))
+        print(f'Total number of particles in selected conformational states is {len(subset_df)}')
     else: # by default select all conformational labels
         subset_df = s.df
         
