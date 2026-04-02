@@ -116,10 +116,10 @@ def return_distribution_star(in_star, distribution_dict, out_star, clist, crange
     assert clist is None or crange is None, 'provide either selected conformational labels or a conformational label range'
     
     if clist:
-        subset_df = s.df['_ConformationalLabel'].isin(clist)
+        subset_df = s.df[s.df['_ConformationalLabel'].isin(clist)]
     elif crange:
         start, stop = crange
-        subset_df = s.df['_ConformationalLabel'].isin(np.arange(start, stop+1))
+        subset_df = s.df[s.df['_ConformationalLabel'].isin(np.arange(start, stop+1))]
     else: # by default select all conformational labels
         subset_df = s.df
         
