@@ -112,7 +112,8 @@ class Starfile():
 def return_distribution_star(in_star, distribution_dict, out_star, clist, crange):
     # read in refinement .star file with all particles
     s = Starfile.load(in_star)
-
+    s.df['_ConformationalLabel'] = s.df['_ConformationalLabel'].astype(int)
+    
     assert clist is None or crange is None, 'provide either selected conformational labels or a conformational label range'
     
     if clist:
